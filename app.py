@@ -72,6 +72,11 @@ def display_image(filename):
     # 결과 이미지를 클라이언트에 전송
     return send_from_directory(app.config['RESULT_FOLDER'], filename)
 
+def highboost_filter(image):
+    blurred = cv2.GaussianBlur(image, (5, 5), 0)
+    highboost = cv2.addWeighted(image, 1.5, blurred, -0.5, 0)
+    return highboost
+
 def process_images(main_image_path, current_image_path, template_image_path, result_image_path, pieces, difficulty):
     # 이미지 파일 읽기
     current_image = cv2.imread(current_image_path)
@@ -89,18 +94,31 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     # 현재 맞춘 퍼즐 이미지를 메인 이미지 크기로 리사이즈
     current_resized = cv2.resize(current_image, (main_image.shape[1], main_image.shape[0]))
 
-    # 이미지 전처리 (그레이스케일 변환, 가우시안 블러, 캐니 엣지 검출)
-    gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
+    # 이미지 전처리
+    # Highboost Filtering 적용
+    current_highboost = highboost_filter(current_resized)
+    template_highboost = highboost_filter(template_image)
+    main_highboost = highboost_filter(main_image)
+
+    # 그레이스케일 변환
+    gray = cv2.cvtColor(current_highboost, cv2.COLOR_BGR2GRAY)
+    gray_template = cv2.cvtColor(template_highboost, cv2.COLOR_BGR2GRAY)
+
+    # OTSU 이진화
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, thresh_template = cv2.threshold(gray_template, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Canny edge detection을 사용하여 엣지 검출
+    edges = cv2.Canny(thresh, 50, 150)
+
+    # Contours 검출
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # 메인 이미지에 컨투어 그리기 (초록색)
-    contours_image = main_image.copy()
+    # 메인 이미지에 Contours 그리기 (초록색)
+    contours_image = main_highboost.copy()
     cv2.drawContours(contours_image, contours, -1, (0, 255, 0), 2)
 
-    # 템플릿 이미지를 그레이스케일로 변환 및 여러 크기로 시도
-    template_gray = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
+    # 템플릿 크기 조정 (여러 크기로 시도)
     scales = [1.0, 0.9, 0.8, 0.7, 0.6]
 
     best_match = None
@@ -109,11 +127,11 @@ def process_images(main_image_path, current_image_path, template_image_path, res
 
     # 여러 크기의 템플릿 이미지로 매칭 수행
     for scale in scales:
-        width = int(template_gray.shape[1] * scale)
-        height = int(template_gray.shape[0] * scale)
-        resized_template = cv2.resize(template_gray, (width, height), interpolation=cv2.INTER_AREA)
+        width = int(thresh_template.shape[1] * scale)
+        height = int(thresh_template.shape[0] * scale)
+        resized_template = cv2.resize(thresh_template, (width, height), interpolation=cv2.INTER_AREA)
         
-        result = cv2.matchTemplate(cv2.cvtColor(main_image, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
+        result = cv2.matchTemplate(cv2.cvtColor(main_highboost, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
         
         if max_val > best_val:
