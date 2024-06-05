@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Image</title>
+    <style>
+        img {
+            max-width: 70%;
+            max-height: 70vh;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .header, .footer {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header img, .footer img {
+            width: 100px;
+            height: auto;
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        .btn-back {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .btn-back:hover {
+            background-color: #0056b3;
+        }
+        .legend {
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #555;
+        }
+        .legend span {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .legend .green {
+            color: #008000; /* 어두운 초록색 */
+        }
+        .legend .red {
+            color: #B22222; /* 어두운 빨간색 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>퍼즐이 이곳에 있어요!</h1>
+        <img src="{{ url_for('display_image', filename=filename) }}" alt="Result Image">
+        <div class="legend">
+            <span class="green">초록색: 현재까지 맞춘 퍼즐</span>
+            <span class="red">빨간색: 타깃 퍼즐</span>
+        </div>
+        <br>
+        <a href="/" class="btn-back">퍼즐 위치 찾으러 가기</a>
+    </div>
+</body>
+</html>
