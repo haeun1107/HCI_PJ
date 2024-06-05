@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 
 # 이미지 경로 설정
-main_image_path = '/Users/she/hci/puzzle/main.png'
-current_image_path = '/Users/she/hci/puzzle/current.png'
-template_image_path = '/Users/she/hci/puzzle/target.png'
+main_image_path = '/Users/she/Desktop/인컴/pi.jpeg'
+current_image_path = '/Users/she/Desktop/인컴/pi1.jpeg'
+template_image_path = '/Users/she/Desktop/인컴/f.jpeg'
 
 # 이미지를 불러오기
 current_image = cv2.imread(current_image_path)
@@ -19,9 +19,7 @@ if main_image is None:
 if template_image is None:
     raise FileNotFoundError(f"타겟 이미지를 찾을 수 없습니다: {template_image_path}")
 
-#template_image = cv2.resize(template_image, (0, 0), fx=0.4, fy=0.4, interpolation=cv2.INTER_AREA)
-template_image = cv2.resize(template_image, (0, 0), fx=1, fy=1, interpolation=cv2.INTER_AREA)
-
+template_image = cv2.resize(template_image, (0, 0), fx=0.4, fy=0.4, interpolation=cv2.INTER_AREA)
 # 템플릿 이미지를 메인 이미지 크기로 리사이즈
 current_resized = cv2.resize(current_image, (main_image.shape[1], main_image.shape[0]))
 
@@ -49,7 +47,7 @@ template_gray = cv2.resize(template_gray, (0,0), fx=1, fy=1, interpolation=cv2.I
 scales = [1.0, 0.9, 0.8, 0.7, 0.6]  # 템플릿 이미지의 크기 비율 목록
 
 best_match = None
-best_val = -np.inf
+best_val = np.inf
 best_location = None
 best_scale = None
 
@@ -60,19 +58,30 @@ for scale in scales:
     
     resized_template = cv2.resize(template_gray, dim, interpolation=cv2.INTER_AREA)
     
-    # 템플릿 매칭 수행
-    result = cv2.matchTemplate(cv2.cvtColor(main_image, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+    # 템플릿 히스토그램 계산
+    template_hist = cv2.calcHist([resized_template], [0], None, [256], [0, 256])
+    cv2.normalize(template_hist, template_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
     
-    if max_val > best_val:
-        best_match = resized_template
-        best_val = max_val
-        best_location = max_loc
-        best_scale = scale
+    # 메인 이미지에서 매칭할 부분 히스토그램 계산
+    for i in range(main_image.shape[0] - height + 1):
+        for j in range(main_image.shape[1] - width + 1):
+            roi = main_image[i:i + height, j:j + width]
+            roi_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            roi_hist = cv2.calcHist([roi_gray], [0], None, [256], [0, 256])
+            cv2.normalize(roi_hist, roi_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+            
+            # 히스토그램 비교
+            hist_diff = cv2.compareHist(template_hist, roi_hist, cv2.HISTCMP_BHATTACHARYYA)
+            
+            if hist_diff < best_val:
+                best_val = hist_diff
+                best_location = (j, i)
+                best_match = roi
+                best_scale = scale
 
-# 매칭된 부분에 사각형 그리기 (빨간색)
+# 매칭된 부분에 사각형 그리기
 top_left = best_location
-bottom_right = (top_left[0] + best_match.shape[1], top_left[1] + best_match.shape[0])
+bottom_right = (top_left[0] + int(template_gray.shape[1] * best_scale), top_left[1] + int(template_gray.shape[0] * best_scale))
 cv2.rectangle(contours_image, top_left, bottom_right, (0, 0, 255), 2)
 
 # 타겟 이미지 영역 추출
@@ -85,7 +94,7 @@ edges_roi = cv2.Canny(blurred_roi, 50, 150)
 contours_roi, _ = cv2.findContours(edges_roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 # 메인 이미지에 타겟 영역 라인 그리기 (빨간색)
-#cv2.drawContours(contours_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]], contours_roi, -1, (0, 0, 255), 2)
+cv2.drawContours(contours_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]], contours_roi, -1, (0, 0, 255), 2)
 
 # 결과 이미지 파일로 저장
 result_image_path = 'result_image_with_lines.png'
