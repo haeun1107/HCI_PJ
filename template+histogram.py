@@ -90,12 +90,12 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     current_resized = cv2.resize(current_image, (main_image.shape[1], main_image.shape[0]))
 
     # 이미지 전처리 (그레이스케일 변환, 가우시안 블러, 하이부스트 필터링, OTSU 임계처리)
-    gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    highboost = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)
-    _, otsu_thresh = cv2.threshold(highboost, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    edges = cv2.Canny(otsu_thresh, 50, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)  # 그레이스케일 변환
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)  # 가우시안 블러 적용
+    highboost = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)  # 하이부스트 필터링 적용
+    _, otsu_thresh = cv2.threshold(highboost, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)  # OTSU 임계처리 적용
+    edges = cv2.Canny(otsu_thresh, 50, 150)  # Canny 엣지 검출 적용
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 컨투어 검출
 
     # 메인 이미지에 컨투어 그리기 (초록색)
     contours_image = main_image.copy()
@@ -104,21 +104,21 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     # 템플릿 이미지를 그레이스케일로 변환 및 히스토그램 계산
     template_gray = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
     template_hist = cv2.calcHist([template_gray], [0], None, [256], [0, 256])
-    cv2.normalize(template_hist, template_hist, 0, 1, cv2.NORM_MINMAX)
+    cv2.normalize(template_hist, template_hist, 0, 1, cv2.NORM_MINMAX) # 히스토그램 정규화
 
     best_match = None
     best_val = -np.inf
     best_location = None
 
-    scales = [1.0, 0.9, 0.8, 0.7, 0.6]
+    scales = [1.0, 0.9, 0.8, 0.7, 0.6] # 템플릿 이미지의 크기 비율 목록
 
     # 여러 크기의 템플릿 이미지로 매칭 수행
     for scale in scales:
         width = int(template_gray.shape[1] * scale)
         height = int(template_gray.shape[0] * scale)
-        resized_template = cv2.resize(template_gray, (width, height), interpolation=cv2.INTER_AREA)
-        result = cv2.matchTemplate(cv2.cvtColor(main_image, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+        resized_template = cv2.resize(template_gray, (width, height), interpolation=cv2.INTER_AREA)  # 템플릿 이미지 리사이즈
+        result = cv2.matchTemplate(cv2.cvtColor(main_image, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)  # 템플릿 매칭 수행
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)  # 매칭 결과에서 최댓값 및 위치 찾기
 
         if max_val > best_val:
             best_match = resized_template
