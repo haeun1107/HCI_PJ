@@ -93,8 +93,8 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)  # 그레이스케일 변환
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)  # 가우시안 블러 적용
     highboost = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)  # 하이부스트 필터링 적용
-    _, otsu_thresh = cv2.threshold(highboost, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)  # OTSU 임계처리 적용
-    edges = cv2.Canny(otsu_thresh, 50, 150)  # Canny 엣지 검출 적용
+    #_, otsu_thresh = cv2.threshold(highboost, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)  # OTSU 임계처리 적용
+    edges = cv2.Canny(highboost, 50, 150)  # Canny 엣지 검출 적용
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 컨투어 검출
 
     # 메인 이미지에 컨투어 그리기 (초록색)

@@ -94,22 +94,19 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     # 현재 맞춘 퍼즐 이미지를 메인 이미지 크기로 리사이즈
     current_resized = cv2.resize(current_image, (main_image.shape[1], main_image.shape[0]))
 
-    # 이미지 전처리
-    # Highboost Filtering 적용
-    current_highboost = highboost_filter(current_resized)
-    template_highboost = highboost_filter(template_image)
-    main_highboost = highboost_filter(main_image)
 
     # 그레이스케일 변환
-    gray = cv2.cvtColor(current_highboost, cv2.COLOR_BGR2GRAY)
-    gray_template = cv2.cvtColor(template_highboost, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)
+    gray_template = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
 
-    # OTSU 이진화
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    _, thresh_template = cv2.threshold(gray_template, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+# 이미지 전처리
+    # Highboost Filtering 적용
+    current_highboost = highboost_filter(gray)
+    template_highboost = highboost_filter(gray_template)
+    main_highboost = highboost_filter(main_image)
 
     # Canny edge detection을 사용하여 엣지 검출
-    edges = cv2.Canny(thresh, 50, 150)
+    edges = cv2.Canny(current_highboost, 50, 150)
 
     # Contours 검출
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -127,9 +124,9 @@ def process_images(main_image_path, current_image_path, template_image_path, res
 
     # 여러 크기의 템플릿 이미지로 매칭 수행
     for scale in scales:
-        width = int(thresh_template.shape[1] * scale)
-        height = int(thresh_template.shape[0] * scale)
-        resized_template = cv2.resize(thresh_template, (width, height), interpolation=cv2.INTER_AREA)
+        width = int(template_highboost.shape[1] * scale)
+        height = int(template_highboost.shape[0] * scale)
+        resized_template = cv2.resize(template_highboost, (width, height), interpolation=cv2.INTER_AREA)
         
         result = cv2.matchTemplate(cv2.cvtColor(main_highboost, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
@@ -158,7 +155,7 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     cv2.rectangle(contours_image, rect_top_left, rect_bottom_right, (0, 0, 255), 2)
 
     # 결과 이미지 파일로 저장
-    cv2.imwrite(result_image_path, contours_image)
+    #cv2.imwrite(result_image_path, contours_image)
 
 if __name__ == "__main__":
     app.run(debug=True)

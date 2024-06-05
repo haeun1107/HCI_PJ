@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 
 # 이미지 경로 설정
-main_image_path = '/Users/she/Desktop/인컴/pi.jpeg'
-current_image_path = '/Users/she/Desktop/인컴/pi1.jpeg'
-template_image_path = '/Users/she/Desktop/인컴/f.jpeg'
+main_image_path = '/Users/she/hci/1000p/origin.jpg'
+current_image_path = '/Users/she/hci/1000p/current.jpg'
+template_image_path = '/Users/she/hci/1000p/target.jpg'
 
 # 이미지를 불러오기
 current_image = cv2.imread(current_image_path)
@@ -94,7 +94,7 @@ edges_roi = cv2.Canny(blurred_roi, 50, 150)
 contours_roi, _ = cv2.findContours(edges_roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 # 메인 이미지에 타겟 영역 라인 그리기 (빨간색)
-cv2.drawContours(contours_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]], contours_roi, -1, (0, 0, 255), 2)
+#cv2.drawContours(contours_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]], contours_roi, -1, (0, 0, 255), 2)
 
 # 결과 이미지 파일로 저장
 result_image_path = 'result_image_with_lines.png'
