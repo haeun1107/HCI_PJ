@@ -89,7 +89,7 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     # 현재 맞춘 퍼즐 이미지를 메인 이미지 크기로 리사이즈
     current_resized = cv2.resize(current_image, (main_image.shape[1], main_image.shape[0]))
 
-    # 이미지 전처리 (그레이스케일 변환, 가우시안 블러, 하이부스트 필터링, OTSU 임계처리)
+    # 이미지 전처리 (그레이스케일 변환, 가우시안 블러, 하이부스트 필터링)
     gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)  # 그레이스케일 변환
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)  # 가우시안 블러 적용
     highboost = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)  # 하이부스트 필터링 적용
