@@ -72,11 +72,6 @@ def display_image(filename):
     # 결과 이미지를 클라이언트에 전송
     return send_from_directory(app.config['RESULT_FOLDER'], filename)
 
-def highboost_filter(image):
-    blurred = cv2.GaussianBlur(image, (5, 5), 0)
-    highboost = cv2.addWeighted(image, 1.5, blurred, -0.5, 0)
-    return highboost
-
 def process_images(main_image_path, current_image_path, template_image_path, result_image_path, pieces, difficulty):
     # 이미지 파일 읽기
     current_image = cv2.imread(current_image_path)
@@ -88,57 +83,82 @@ def process_images(main_image_path, current_image_path, template_image_path, res
         template_image = cv2.resize(template_image, (0, 0), fx=1, fy=1, interpolation=cv2.INTER_AREA)
     elif pieces == 100:
         template_image = cv2.resize(template_image, (0, 0), fx=0.8, fy=0.8, interpolation=cv2.INTER_AREA)
-    else: # 1000개 이하
+    else:  # 1000개 이하
         template_image = cv2.resize(template_image, (0, 0), fx=0.4, fy=0.4, interpolation=cv2.INTER_AREA)
 
     # 현재 맞춘 퍼즐 이미지를 메인 이미지 크기로 리사이즈
     current_resized = cv2.resize(current_image, (main_image.shape[1], main_image.shape[0]))
 
+    # 이미지 전처리 (그레이스케일 변환, 가우시안 블러, 하이부스트 필터링)
+    gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)  # 그레이스케일 변환
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)  # 가우시안 블러 적용
+    highboost = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)  # 하이부스트 필터링 적용
+    edges = cv2.Canny(highboost, 50, 150)  # Canny 엣지 검출 적용
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 컨투어 검출
 
-    # 그레이스케일 변환
-    gray = cv2.cvtColor(current_resized, cv2.COLOR_BGR2GRAY)
-    gray_template = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
-
-# 이미지 전처리
-    # Highboost Filtering 적용
-    current_highboost = highboost_filter(gray)
-    template_highboost = highboost_filter(gray_template)
-    main_highboost = highboost_filter(main_image)
-
-    # Canny edge detection을 사용하여 엣지 검출
-    edges = cv2.Canny(current_highboost, 50, 150)
-
-    # Contours 검출
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # 메인 이미지에 Contours 그리기 (초록색)
-    contours_image = main_highboost.copy()
+    # 메인 이미지에 컨투어 그리기 (초록색)
+    contours_image = main_image.copy()
     cv2.drawContours(contours_image, contours, -1, (0, 255, 0), 2)
 
-    # 템플릿 크기 조정 (여러 크기로 시도)
-    scales = [1.0, 0.9, 0.8, 0.7, 0.6]
+    if pieces == 50:
+        # 템플릿 이미지를 그레이스케일로 변환 및 히스토그램 계산
+        template_gray = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
+        template_hist = cv2.calcHist([template_gray], [0], None, [256], [0, 256])
+        cv2.normalize(template_hist, template_hist, 0, 1, cv2.NORM_MINMAX)  # 히스토그램 정규화
 
-    best_match = None
-    best_val = -np.inf
-    best_location = None
+        best_match = None
+        best_val = np.inf
+        best_location = None
 
-    # 여러 크기의 템플릿 이미지로 매칭 수행
-    for scale in scales:
-        width = int(template_highboost.shape[1] * scale)
-        height = int(template_highboost.shape[0] * scale)
-        resized_template = cv2.resize(template_highboost, (width, height), interpolation=cv2.INTER_AREA)
+        scales = [1.0, 0.9, 0.8, 0.7, 0.6]  # 템플릿 이미지의 크기 비율 목록
+
+        for scale in scales:
+            width = int(template_gray.shape[1] * scale)
+            height = int(template_gray.shape[0] * scale)
+            resized_template = cv2.resize(template_gray, (width, height), interpolation=cv2.INTER_AREA)
+
+            for i in range(main_image.shape[0] - height + 1):
+                for j in range(main_image.shape[1] - width + 1):
+                    roi = main_image[i:i + height, j:j + width]
+                    roi_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                    roi_hist = cv2.calcHist([roi_gray], [0], None, [256], [0, 256])
+                    cv2.normalize(roi_hist, roi_hist, 0, 1, cv2.NORM_MINMAX)
+
+                    hist_diff = cv2.compareHist(template_hist, roi_hist, cv2.HISTCMP_BHATTACHARYYA)
+
+                    if hist_diff < best_val:
+                        best_val = hist_diff
+                        best_location = (j, i)
+                        best_match = roi
         
-        result = cv2.matchTemplate(cv2.cvtColor(main_highboost, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, max_loc = cv2.minMaxLoc(result)
-        
-        if max_val > best_val:
-            best_match = resized_template
-            best_val = max_val
-            best_location = max_loc
+        # 매칭된 부분의 좌표
+        top_left = best_location
+        bottom_right = (top_left[0] + int(template_gray.shape[1] * scale), top_left[1] + int(template_gray.shape[0] * scale))
 
-    # 매칭된 부분의 좌표
-    top_left = best_location
-    bottom_right = (top_left[0] + best_match.shape[1], top_left[1] + best_match.shape[0])
+    else:
+        # 템플릿 매칭 코드 (기존 코드 유지)
+        template_gray = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
+        best_match = None
+        best_val = -np.inf
+        best_location = None
+
+        scales = [1.0, 0.9, 0.8, 0.7, 0.6]  # 템플릿 이미지의 크기 비율 목록
+
+        for scale in scales:
+            width = int(template_gray.shape[1] * scale)
+            height = int(template_gray.shape[0] * scale)
+            resized_template = cv2.resize(template_gray, (width, height), interpolation=cv2.INTER_AREA)
+            result = cv2.matchTemplate(cv2.cvtColor(main_image, cv2.COLOR_BGR2GRAY), resized_template, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+            if max_val > best_val:
+                best_match = resized_template
+                best_val = max_val
+                best_location = max_loc
+
+        # 매칭된 부분의 좌표
+        top_left = best_location
+        bottom_right = (top_left[0] + best_match.shape[1], top_left[1] + best_match.shape[0])
 
     # 난이도에 따라 사각형 크기 조정
     if difficulty == 'high':
@@ -155,7 +175,7 @@ def process_images(main_image_path, current_image_path, template_image_path, res
     cv2.rectangle(contours_image, rect_top_left, rect_bottom_right, (0, 0, 255), 2)
 
     # 결과 이미지 파일로 저장
-    #cv2.imwrite(result_image_path, contours_image)
+    cv2.imwrite(result_image_path, contours_image)
 
 if __name__ == "__main__":
     app.run(debug=True)
