@@ -7,7 +7,8 @@
 >
 > 혼자 고민하지 말고, 🤔 **퍼즐 위치 가이드**에서 **힌트**를 받아보세요!<br>
 
-![wel](https://github.com/haeun1107/HCI_PUZZLE/assets/84195580/2c57dcd4-d756-419f-8a9f-489e1a55596f)
+![WELCOME (1)](https://github.com/haeun1107/HCI_PUZZLE/assets/84195580/f4a525dc-fe39-424c-94a6-a52ae01fd939)
+
 
 <br><br>
 
